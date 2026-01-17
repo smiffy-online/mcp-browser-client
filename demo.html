@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MCP Tools Explorer</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+
+<style>
+  .mcp-container { max-width: 900px; margin: 0 auto; padding: 1rem; }
+  .page-title { text-align: center; margin-bottom: 1.5rem; }
+
+  /* Server list */
+  .server-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  /* Server card */
+  .server-card {
+    background: var(--pico-card-background-color);
+    border: 2px solid var(--pico-muted-color);
+    border-radius: var(--pico-border-radius);
+    overflow: hidden;
+  }
+  .server-card.expanded {
+    border-color: var(--pico-primary);
+  }
+  .server-card.connected {
+    border-color: #10b981;
+  }
+  .server-card.expanded.connected {
+    border-color: #10b981;
+  }
+  .server-card.error {
+    border-color: #dc2626;
+  }
+
+  /* Server header */
+  .server-header {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+    background: transparent;
+    border: none;
+    width: 100%;
+    text-align: left;
+    color: inherit;
+    font-size: inherit;
+    margin: 0;
+    gap: 0.75rem;
+  }
+  .server-header:hover {
+    background: var(--pico-secondary-background);
+  }
+  .server-header:focus {
+    outline: 2px solid var(--pico-primary);
+    outline-offset: -2px;
+  }
+  .server-header:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  .server-name {
+    font-weight: 600;
+    flex: 1;
+  }
+
+  .server-status {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.25rem;
+  }
+  .server-status.disconnected {
+    color: var(--pico-muted-color);
+  }
+  .server-status.connecting {
+    color: #f59e0b;
+  }
+  .server-status.connected {
+    color: #10b981;
+  }
+  .server-status.error {
+    color: #dc2626;
+  }
+
+  .server-expand-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--pico-muted-color);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+  .server-expand-icon svg {
+    width: 1rem;
+    height: 1rem;
+    stroke: currentColor;
+    fill: none;
+  }
+  .server-card.expanded .server-expand-icon {
+    transform: rotate(180deg);
+  }
+
+  /* Server body */
+  .server-body {
+    display: none;
+    padding: 1rem;
+    padding-top: 0;
+  }
+  .server-card.expanded .server-body {
+    display: block;
+  }
+
+  /* Server controls */
+  .server-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+  }
+  .server-url {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--pico-muted-color);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .server-controls button {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  /* Tool filter */
+  .tool-filter {
+    margin-bottom: 1rem;
+  }
+  .tool-filter input {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.6rem;
+  }
+  .tool-count {
+    font-size: 0.85rem;
+    color: var(--pico-muted-color);
+    margin-bottom: 0.75rem;
+  }
+
+  /* Tool list within server */
+  .tool-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  /* Tool item */
+  .tool-item {
+    background: var(--pico-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    overflow: hidden;
+  }
+  .tool-item.expanded {
+    border-color: var(--pico-primary);
+  }
+
+  .tool-header {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+    background: transparent;
+    border: none;
+    width: 100%;
+    text-align: left;
+    color: inherit;
+    font-size: inherit;
+    margin: 0;
+  }
+  .tool-header:hover {
+    background: var(--pico-secondary-background);
+  }
+
+  .tool-name {
+    font-family: monospace;
+    font-size: 1.1rem;
+    font-weight: 600;
+    flex: 1;
+    margin: 0;
+  }
+
+  .tool-expand-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--pico-muted-color);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+  .tool-expand-icon svg {
+    width: 0.875rem;
+    height: 0.875rem;
+    stroke: currentColor;
+    fill: none;
+  }
+  .tool-item.expanded .tool-expand-icon {
+    transform: rotate(180deg);
+  }
+
+  .tool-body {
+    display: none;
+    padding: 0.75rem;
+    padding-top: 0;
+  }
+  .tool-item.expanded .tool-body {
+    display: block;
+  }
+
+  .tool-description {
+    color: var(--pico-muted-color);
+    font-size: 0.85rem;
+    margin: 0.75rem 0;
+  }
+
+  /* Parameters */
+  .params-section h4 {
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+    color: var(--pico-muted-color);
+  }
+  .param-group {
+    margin-bottom: 0.75rem;
+  }
+  .param-label {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 0.2rem;
+  }
+  .param-name { font-family: monospace; font-weight: 600; font-size: 0.85rem; }
+  .param-type { font-size: 0.7rem; color: var(--pico-muted-color); }
+  .param-required { font-size: 0.65rem; color: #dc2626; text-transform: uppercase; }
+  .param-desc { font-size: 0.75rem; color: var(--pico-muted-color); margin-bottom: 0.3rem; }
+  .param-input input, .param-input select, .param-input textarea {
+    font-family: monospace;
+    font-size: 0.8rem;
+    padding: 0.35rem 0.5rem;
+  }
+  .param-input textarea { min-height: 50px; resize: vertical; }
+
+  .no-params {
+    font-size: 0.85rem;
+    color: var(--pico-muted-color);
+    font-style: italic;
+    margin: 0.75rem 0;
+  }
+
+  /* Execute button */
+  .execute-row {
+    margin-top: 0.75rem;
+  }
+  .execute-btn {
+    padding: 0.4rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  /* Result */
+  .result-section {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--pico-muted-border-color);
+  }
+  .result-section h4 {
+    font-size: 0.85rem;
+    margin-bottom: 0.4rem;
+  }
+  .result-box {
+    background: var(--pico-code-background-color);
+    border-radius: var(--pico-border-radius);
+    padding: 0.6rem;
+    font-family: monospace;
+    font-size: 0.75rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 250px;
+    overflow: auto;
+  }
+  .result-box.error { border-left: 3px solid #dc2626; }
+  .result-box.success { border-left: 3px solid #10b981; }
+  .result-timing {
+    font-size: 0.7rem;
+    color: var(--pico-muted-color);
+    margin-top: 0.3rem;
+  }
+
+  /* Add server */
+  .add-server-section {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--pico-card-background-color);
+    border: 2px dashed var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+  }
+  .add-server-section.editing {
+    border-style: solid;
+    border-color: var(--pico-primary);
+  }
+  .add-server-btn {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--pico-muted-color);
+    cursor: pointer;
+    padding: 0.5rem;
+  }
+  .add-server-btn:hover {
+    color: var(--pico-primary);
+  }
+  .add-server-form {
+    display: none;
+  }
+  .add-server-section.editing .add-server-btn {
+    display: none;
+  }
+  .add-server-section.editing .add-server-form {
+    display: block;
+  }
+  .add-server-form input {
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+  }
+  .add-server-form .button-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .add-server-form button {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--pico-muted-color);
+  }
+
+  /* Loading */
+  .loading-indicator {
+    color: var(--pico-muted-color);
+    font-style: italic;
+  }
+
+  /* Getting started */
+  .getting-started {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+  }
+  .getting-started h3 {
+    margin-top: 0;
+    font-size: 1rem;
+  }
+  .getting-started ol {
+    margin-bottom: 0;
+    padding-left: 1.25rem;
+  }
+  .getting-started li {
+    margin-bottom: 0.5rem;
+  }
+  .getting-started code {
+    font-size: 0.85em;
+  }
+</style>
+</head>
+<body>
+<main class="mcp-container">
+  <h1 class="page-title">MCP Tools Explorer</h1>
+
+  <div id="server-list" class="server-list"></div>
+
+  <div id="add-server-section" class="add-server-section">
+    <button type="button" class="add-server-btn" onclick="showAddServerForm()">+ Add Server</button>
+    <div class="add-server-form">
+      <input type="text" id="new-server-name" placeholder="Server name (e.g., My MCP Server)">
+      <input type="url" id="new-server-url" placeholder="Server URL (e.g., https://example.com/mcp)">
+      <div class="button-row">
+        <button type="button" onclick="addServer()">Add</button>
+        <button type="button" class="outline" onclick="hideAddServerForm()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="getting-started" class="getting-started">
+    <h3>Getting Started</h3>
+    <ol>
+      <li>Click <strong>+ Add Server</strong> above to add an MCP server</li>
+      <li>Enter a name and the server's HTTP endpoint URL</li>
+      <li>Click on the server to connect and view available tools</li>
+      <li>Expand a tool to see its parameters and execute it</li>
+    </ol>
+    <p><small>Servers are saved in your browser's localStorage and will persist across sessions.</small></p>
+  </div>
+</main>
+
+<script src="mcp-client.js"></script>
+<script>
+  // SVG icons
+  const chevronSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+
+  // State - no default servers for public release
+  const DEFAULT_SERVERS = [];
+
+  let servers = []; // { id, name, url, client, status, tools, expanded, expandedTool, filter }
+
+  // Load servers from localStorage
+  function loadServers() {
+    const saved = localStorage.getItem('mcp-servers');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        servers = parsed.map(s => ({
+          ...s,
+          client: null,
+          status: 'disconnected',
+          tools: [],
+          expanded: false,
+          expandedTool: null,
+          filter: ''
+        }));
+      } catch (e) {
+        servers = [];
+      }
+    }
+
+    // Ensure defaults exist (none for public release)
+    for (const def of DEFAULT_SERVERS) {
+      if (!servers.find(s => s.url === def.url)) {
+        servers.push({
+          ...def,
+          client: null,
+          status: 'disconnected',
+          tools: [],
+          expanded: false,
+          expandedTool: null,
+          filter: ''
+        });
+      }
+    }
+
+    saveServers();
+    updateGettingStarted();
+  }
+
+  function saveServers() {
+    const toSave = servers.map(s => ({ id: s.id, name: s.name, url: s.url }));
+    localStorage.setItem('mcp-servers', JSON.stringify(toSave));
+  }
+
+  function generateId() {
+    return 'srv-' + Math.random().toString(36).substr(2, 9);
+  }
+
+  function updateGettingStarted() {
+    const el = document.getElementById('getting-started');
+    if (el) {
+      el.style.display = servers.length === 0 ? 'block' : 'none';
+    }
+  }
+
+  // Render
+  function render() {
+    const container = document.getElementById('server-list');
+    container.innerHTML = servers.map(renderServer).join('');
+    bindServerEvents();
+    updateGettingStarted();
+  }
+
+  function renderServer(server) {
+    const expandedClass = server.expanded ? 'expanded' : '';
+    const statusClass = server.status;
+    const statusText = {
+      'disconnected': 'Not connected',
+      'connecting': 'Connecting...',
+      'connected': `Connected (${server.tools.length} tools)`,
+      'error': 'Error'
+    }[server.status];
+
+    let bodyContent = '';
+    if (server.expanded) {
+      if (server.status === 'connecting') {
+        bodyContent = '<p class="loading-indicator" aria-busy="true">Loading tools...</p>';
+      } else if (server.status === 'connected') {
+        bodyContent = renderServerTools(server);
+      } else if (server.status === 'error') {
+        bodyContent = `<p class="empty-state">Connection failed. Click to retry.</p>`;
+      } else {
+        bodyContent = '<p class="loading-indicator" aria-busy="true">Connecting...</p>';
+      }
+    }
+
+    const showDisconnect = server.status === 'connected';
+    const isDefault = DEFAULT_SERVERS.some(d => d.url === server.url);
+
+    return `
+      <div class="server-card ${expandedClass} ${statusClass}" data-server-id="${esc(server.id)}">
+        <div class="server-header" data-server-id="${esc(server.id)}" tabindex="0" title="${server.expanded ? 'Collapse' : 'Expand'} ${esc(server.name)}">
+          <span class="server-name">${esc(server.name)}</span>
+          <span class="server-status ${statusClass}">${statusText}</span>
+          <span class="server-expand-icon" aria-hidden="true">${chevronSvg}</span>
+        </div>
+        <div class="server-body">
+          <div class="server-controls">
+            <span class="server-url" title="${esc(server.url)}">${esc(server.url)}</span>
+            ${showDisconnect ? `<button type="button" class="outline disconnect-btn" data-server-id="${esc(server.id)}">Disconnect</button>` : ''}
+            ${!isDefault ? `<button type="button" class="outline secondary remove-btn" data-server-id="${esc(server.id)}">Remove</button>` : ''}
+          </div>
+          ${bodyContent}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderServerTools(server) {
+    const filtered = server.tools.filter(t =>
+      t.name.toLowerCase().includes(server.filter.toLowerCase()) ||
+      (t.description && t.description.toLowerCase().includes(server.filter.toLowerCase()))
+    );
+
+    const countText = server.filter
+      ? `${filtered.length} of ${server.tools.length} tools`
+      : `${server.tools.length} tools`;
+
+    let toolsHtml = '';
+    if (filtered.length === 0) {
+      toolsHtml = '<p class="empty-state">No tools match filter</p>';
+    } else {
+      toolsHtml = `<div class="tool-list">${filtered.map(t => renderTool(server, t)).join('')}</div>`;
+    }
+
+    return `
+      <div class="tool-filter">
+        <input type="search" placeholder="Filter tools..." value="${esc(server.filter)}" data-server-id="${esc(server.id)}" class="tool-filter-input">
+      </div>
+      <div class="tool-count">${countText}</div>
+      ${toolsHtml}
+    `;
+  }
+
+  function renderTool(server, tool) {
+    const expanded = server.expandedTool === tool.name ? 'expanded' : '';
+    const schema = tool.inputSchema || {};
+    const props = schema.properties || {};
+    const required = schema.required || [];
+
+    let paramsHtml = '';
+    const propEntries = Object.entries(props);
+
+    if (propEntries.length > 0) {
+      paramsHtml = '<div class="params-section"><h4>Parameters</h4>';
+      for (const [name, propSchema] of propEntries) {
+        paramsHtml += renderParam(server.id, tool.name, name, propSchema, required.includes(name));
+      }
+      paramsHtml += '</div>';
+    } else {
+      paramsHtml = '<p class="no-params">No parameters required.</p>';
+    }
+
+    return `
+      <div class="tool-item ${expanded}" data-server-id="${esc(server.id)}" data-tool="${esc(tool.name)}">
+        <div class="tool-header" data-server-id="${esc(server.id)}" data-tool="${esc(tool.name)}" tabindex="0" title="Expand ${esc(tool.name)}">
+          <h3 class="tool-name">${esc(tool.name)}</h3>
+          <span class="tool-expand-icon" aria-hidden="true">${chevronSvg}</span>
+        </div>
+        <div class="tool-body">
+          <p class="tool-description">${esc(tool.description || 'No description')}</p>
+          <form class="tool-form" data-server-id="${esc(server.id)}" data-tool="${esc(tool.name)}" onsubmit="return false;">
+            ${paramsHtml}
+            <div class="execute-row">
+              <button type="button" class="execute-btn" data-server-id="${esc(server.id)}" data-tool="${esc(tool.name)}">Execute</button>
+            </div>
+          </form>
+          <div class="result-section" data-server-id="${esc(server.id)}" data-tool="${esc(tool.name)}" style="display: none;">
+            <h4>Result</h4>
+            <div class="result-box"></div>
+            <div class="result-timing"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderParam(serverId, toolName, name, schema, isRequired) {
+    const type = schema.type || 'string';
+    const desc = schema.description || '';
+    const enumVals = schema.enum;
+    const defaultVal = schema.default;
+    const inputId = `${serverId}-${toolName}-${name}`;
+
+    let inputHtml = '';
+
+    if (enumVals && enumVals.length > 0) {
+      inputHtml = `<select name="${esc(name)}" id="${esc(inputId)}" data-type="${type}">`;
+      if (!isRequired) inputHtml += `<option value="">-- select --</option>`;
+      for (const v of enumVals) {
+        const sel = defaultVal === v ? 'selected' : '';
+        inputHtml += `<option value="${esc(v)}" ${sel}>${esc(v)}</option>`;
+      }
+      inputHtml += `</select>`;
+    } else if (type === 'boolean') {
+      const checked = defaultVal === true ? 'checked' : '';
+      inputHtml = `<label><input type="checkbox" name="${esc(name)}" id="${esc(inputId)}" data-type="boolean" ${checked}> Enable</label>`;
+    } else if (type === 'integer' || type === 'number') {
+      const val = defaultVal !== undefined ? defaultVal : '';
+      inputHtml = `<input type="number" name="${esc(name)}" id="${esc(inputId)}" data-type="${type}" value="${val}" placeholder="${type}">`;
+    } else if (type === 'object' || type === 'array') {
+      const val = defaultVal !== undefined ? JSON.stringify(defaultVal, null, 2) : '';
+      inputHtml = `<textarea name="${esc(name)}" id="${esc(inputId)}" data-type="${type}" placeholder="JSON ${type}">${esc(val)}</textarea>`;
+    } else {
+      const val = defaultVal !== undefined ? defaultVal : '';
+      inputHtml = `<input type="text" name="${esc(name)}" id="${esc(inputId)}" data-type="string" value="${esc(val)}" placeholder="string">`;
+    }
+
+    return `
+      <div class="param-group">
+        <div class="param-label">
+          <label class="param-name" for="${esc(inputId)}">${esc(name)}</label>
+          <span class="param-type">${esc(type)}</span>
+          ${isRequired ? '<span class="param-required">required</span>' : ''}
+        </div>
+        ${desc ? `<div class="param-desc">${esc(desc)}</div>` : ''}
+        <div class="param-input">${inputHtml}</div>
+      </div>
+    `;
+  }
+
+  // Event binding
+  function bindServerEvents() {
+    // Server headers (expand/collapse)
+    document.querySelectorAll('.server-header').forEach(el => {
+      el.addEventListener('click', () => toggleServer(el.dataset.serverId));
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleServer(el.dataset.serverId);
+        }
+      });
+    });
+
+    // Disconnect buttons
+    document.querySelectorAll('.disconnect-btn').forEach(el => {
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        disconnectServer(el.dataset.serverId);
+      });
+    });
+
+    // Remove buttons
+    document.querySelectorAll('.remove-btn').forEach(el => {
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        removeServer(el.dataset.serverId);
+      });
+    });
+
+    // Tool filter inputs
+    document.querySelectorAll('.tool-filter-input').forEach(el => {
+      el.addEventListener('input', e => {
+        const server = servers.find(s => s.id === el.dataset.serverId);
+        if (server) {
+          server.filter = el.value;
+          render();
+        }
+      });
+    });
+
+    // Tool headers (expand/collapse)
+    document.querySelectorAll('.tool-header').forEach(el => {
+      el.addEventListener('click', () => toggleTool(el.dataset.serverId, el.dataset.tool));
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleTool(el.dataset.serverId, el.dataset.tool);
+        }
+      });
+    });
+
+    // Execute buttons
+    document.querySelectorAll('.execute-btn').forEach(el => {
+      el.addEventListener('click', () => executeTool(el.dataset.serverId, el.dataset.tool));
+    });
+  }
+
+  // Actions
+  async function toggleServer(serverId) {
+    const server = servers.find(s => s.id === serverId);
+    if (!server) return;
+
+    if (server.expanded) {
+      // Collapse
+      server.expanded = false;
+      server.expandedTool = null;
+    } else {
+      // Expand - connect if needed
+      server.expanded = true;
+      if (server.status === 'disconnected' || server.status === 'error') {
+        await connectServer(serverId);
+      }
+    }
+    render();
+  }
+
+  async function connectServer(serverId) {
+    const server = servers.find(s => s.id === serverId);
+    if (!server) return;
+
+    server.status = 'connecting';
+    server.tools = [];
+    render();
+
+    try {
+      server.client = new MCPClient(server.url, { timeout: 15000 });
+      const tools = await server.client.listTools(true);
+      tools.sort((a, b) => a.name.localeCompare(b.name));
+      server.tools = tools;
+      server.status = 'connected';
+    } catch (e) {
+      console.error(`Failed to connect to ${server.name}:`, e);
+      server.status = 'error';
+      server.client = null;
+    }
+    render();
+  }
+
+  async function disconnectServer(serverId) {
+    const server = servers.find(s => s.id === serverId);
+    if (!server || !server.client) return;
+
+    try {
+      await server.client.close();
+    } catch (e) {
+      // Ignore close errors
+    }
+    server.client = null;
+    server.status = 'disconnected';
+    server.tools = [];
+    server.expandedTool = null;
+    render();
+  }
+
+  function removeServer(serverId) {
+    const idx = servers.findIndex(s => s.id === serverId);
+    if (idx === -1) return;
+
+    const server = servers[idx];
+    if (server.client) {
+      server.client.close().catch(() => {});
+    }
+    servers.splice(idx, 1);
+    saveServers();
+    render();
+  }
+
+  function toggleTool(serverId, toolName) {
+    const server = servers.find(s => s.id === serverId);
+    if (!server) return;
+
+    if (server.expandedTool === toolName) {
+      server.expandedTool = null;
+    } else {
+      server.expandedTool = toolName;
+    }
+    render();
+
+    if (server.expandedTool) {
+      const el = document.querySelector(`.tool-item[data-server-id="${serverId}"][data-tool="${toolName}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  }
+
+  async function executeTool(serverId, toolName) {
+    const server = servers.find(s => s.id === serverId);
+    if (!server || !server.client) return;
+
+    const form = document.querySelector(`.tool-form[data-server-id="${serverId}"][data-tool="${toolName}"]`);
+    const resultSection = document.querySelector(`.result-section[data-server-id="${serverId}"][data-tool="${toolName}"]`);
+    const resultBox = resultSection.querySelector('.result-box');
+    const resultTiming = resultSection.querySelector('.result-timing');
+
+    // Gather parameters
+    const args = {};
+    const inputs = form.querySelectorAll('input, select, textarea');
+
+    for (const input of inputs) {
+      const name = input.name;
+      const type = input.dataset.type;
+      let value;
+
+      if (input.type === 'checkbox') {
+        value = input.checked;
+      } else {
+        value = input.value.trim();
+      }
+
+      if (value === '' && type !== 'boolean') continue;
+
+      if (type === 'integer') {
+        value = parseInt(value, 10);
+        if (isNaN(value)) continue;
+      } else if (type === 'number') {
+        value = parseFloat(value);
+        if (isNaN(value)) continue;
+      } else if (type === 'object' || type === 'array') {
+        try {
+          value = JSON.parse(value);
+        } catch (e) {
+          resultSection.style.display = 'block';
+          resultBox.className = 'result-box error';
+          resultBox.textContent = `Invalid JSON for "${name}": ${e.message}`;
+          resultTiming.textContent = '';
+          return;
+        }
+      }
+
+      args[name] = value;
+    }
+
+    // Execute
+    const startTime = performance.now();
+    resultSection.style.display = 'block';
+    resultBox.className = 'result-box';
+    resultBox.textContent = 'Executing...';
+    resultTiming.textContent = '';
+
+    try {
+      const result = await server.client.call(toolName, args);
+      const elapsed = Math.round(performance.now() - startTime);
+
+      resultBox.className = 'result-box success';
+      if (result.data) {
+        resultBox.textContent = JSON.stringify(result.data, null, 2);
+      } else if (result.text) {
+        resultBox.textContent = result.text;
+      } else {
+        resultBox.textContent = JSON.stringify(result.raw, null, 2);
+      }
+      resultTiming.textContent = `${elapsed}ms`;
+    } catch (error) {
+      const elapsed = Math.round(performance.now() - startTime);
+      resultBox.className = 'result-box error';
+      resultBox.textContent = `Error: ${error.message}`;
+      if (error.data) {
+        resultBox.textContent += `\n\n${JSON.stringify(error.data, null, 2)}`;
+      }
+      resultTiming.textContent = `${elapsed}ms`;
+    }
+  }
+
+  // Add server form
+  function showAddServerForm() {
+    document.getElementById('add-server-section').classList.add('editing');
+    document.getElementById('new-server-name').focus();
+  }
+
+  function hideAddServerForm() {
+    document.getElementById('add-server-section').classList.remove('editing');
+    document.getElementById('new-server-name').value = '';
+    document.getElementById('new-server-url').value = '';
+  }
+
+  function addServer() {
+    const name = document.getElementById('new-server-name').value.trim();
+    const url = document.getElementById('new-server-url').value.trim();
+
+    if (!name || !url) {
+      alert('Please enter both name and URL');
+      return;
+    }
+
+    if (servers.find(s => s.url === url)) {
+      alert('A server with this URL already exists');
+      return;
+    }
+
+    servers.push({
+      id: generateId(),
+      name: name,
+      url: url,
+      client: null,
+      status: 'disconnected',
+      tools: [],
+      expanded: false,
+      expandedTool: null,
+      filter: ''
+    });
+
+    saveServers();
+    hideAddServerForm();
+    render();
+  }
+
+  // Cleanup on page unload
+  window.addEventListener('beforeunload', () => {
+    for (const server of servers) {
+      if (server.client) {
+        server.client.close().catch(() => {});
+      }
+    }
+  });
+
+  // Utility
+  function esc(text) {
+    if (text === null || text === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Initialize
+  loadServers();
+  render();
+</script>
+</body>
+</html>
